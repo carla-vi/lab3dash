@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="chart.min.js">S</script>
+    <script src="dash.all.min.js"></script>
+</head>
+
+<body>
+    <video class="dashjs-player" autoplay controls preload="auto" width="1280px" height="720px">
+        <source src="https://dash.akamaized.net/akamai/tos/tears-b.mpd" type="application/dash+xml">
+    </video>
+
+    <script>
+        var player;
+        document.addEventListener("DOMContentLoaded", function () {
+            init();
+        });
+        function init() {
+            player = dashjs.MediaPlayerFactory.create(document.querySelector(".dasgjs-player"));
+        };
+    </script>
+</body>
+
+</html>

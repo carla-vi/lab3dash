@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="chart.min.js"></script>
+    <script src="dash.all.min.js"></script>
+    <style>
+        .container {
+            display: flex;
+            align-items: flex-start;
+        }
+        .code {
+            margin: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="code">
+            <video class="dashjs-player" autoplay controls preload="auto" width="950px" height="720px" muted>
+            </video>
+        </div>
+        <div class="code">
+            <canvas id="metricsChart" width="950" height="720"></canvas>
+        </div>
+    </div>
+    <div class="code">
+        <p>Video Bitrate: <span id="bitrate"></span></p>
+        <p>Video Buffer : <span id="buffer"></span></p>
+        <p>Video Representation: <span id="representation"></span></p>
+    </div>
+
+    <script>
+        var player;
+        document.addEventListener("DOMContentLoaded", function () {
+            init();
+        });
+        function init() {
+            var video,
+                player,
+                mpd_url = "./output_encrypted/stream.mpd";
+
+            video = document.querySelector("video");
+            player = dashjs.MediaPlayer().create();
+            player.initialize(video, mpd_url, true);
+            player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], function () {
+                clearInterval(eventPoller);
+            });
+
+            const protData = {
+                "org.w3.clearkey": {
+                    "clearkeys": {
+                        "oW5AK5BW43HzbTSKpiu3SQ": "hyN9IKGfWKdAwFaE5pm0qg"
+                    }
+                }
+            };
+
+            player.setProtectionData(protData);
+
+            const metricsCtx = document.getElementById('metricsChart').getContext('2d');
+            const metricsChart = new Chart(metricsCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Buffer Level (s)',
+                            data: [],
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            yAxisID: 'y1',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Bitrate (kbps)',
+                            data: [],
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            yAxisID: 'y2',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Buffer Level (s)' },
+                            beginAtZero: false,
+                            min: 28
+                        },
+                        y2: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Bitrate (kbps)' },
+                            beginAtZero: false,
+                            min: 28,
+                            grid: { drawOnChartArea: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+
+            let time = 0;
+
+            var eventPoller = setInterval(function () {
+                var streamInfo = player.getActiveStream().getStreamInfo();
+                var dashMetrics = player.getDashMetrics();
+                var dashAdapter = player.getDashAdapter();
+
+                if (dashMetrics && streamInfo) {
+                    const periodIdx = streamInfo.index;
+                    var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
+                    var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
+                    var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
+                    document.getElementById("buffer").innerText = bufferLevel + " secs";
+                    document.getElementById("bitrate").innerText = bitrate + " kbps";
+                    document.getElementById("representation").innerText = repSwitch.to;
+
+                    time += 0.5;
+                    metricsChart.data.labels.push(time);
+                    metricsChart.data.datasets[0].data.push(bufferLevel); // Buffer 
+                    metricsChart.data.datasets[1].data.push(bitrate);     // Bitrate 
+                    metricsChart.update();
+                }
+            }, 500);
+        }
+    </script>
+</body>
+
+</html>
